@@ -19,24 +19,32 @@ public class SwingSubscriber extends JFrame {
         boolean expanded = false;
         boolean isSimpleMsg = false;
         String msg;
+        long timestamp;
         LogPacket(String deviceId, double x, double y, double rssi, String payload) {
             this.deviceId = deviceId;
             this.x = x;
             this.y = y;
             this.rssi = rssi;
             this.payload = payload;
+            this.timestamp = System.currentTimeMillis();
         }
         LogPacket(String msg) {
             this.isSimpleMsg = true;
             this.msg = msg;
+            this.timestamp = System.currentTimeMillis();
         }
         @Override
         public String toString() {
             if (isSimpleMsg) return msg;
             if (!expanded) {
-                return String.format("[%s] RSSI: %.2f, (x=%.2f, y=%.2f)", deviceId, rssi, x, y);
+                return String.format("[%s] RSSI: %.2f", deviceId, rssi);
             } else {
-                return String.format("[%s] RSSI: %.2f, (x=%.2f, y=%.2f)\n%s", deviceId, rssi, x, y, payload);
+                java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
+                String time = sdf.format(new java.util.Date(timestamp));
+                return String.format(
+                    "[%s]\n  RSSI: %.2f\n  (x=%.2f, y=%.2f)\n  Time: %s\n  JSON: %s",
+                    deviceId, rssi, x, y, time, payload
+                );
             }
         }
     }
@@ -93,7 +101,7 @@ public class SwingSubscriber extends JFrame {
         JScrollPane logScroll = new JScrollPane(logList);
         logScroll.setPreferredSize(new Dimension(350, 300));
         TrilaterationPanel trilatPanel = new TrilaterationPanel();
-        trilatPanel.setPreferredSize(new Dimension(300, 300));
+    trilatPanel.setPreferredSize(new Dimension(400, 400));
         JPanel mainPanel = new JPanel(new BorderLayout());
         mainPanel.add(logScroll, BorderLayout.CENTER);
         mainPanel.add(trilatPanel, BorderLayout.EAST);
@@ -185,12 +193,26 @@ public class SwingSubscriber extends JFrame {
             int w = getWidth(), h = getHeight();
             g2.setColor(Color.BLUE);
             int r = 8;
-            for (DeviceReading dr : deviceReadings.values()) {
+            Font origFont = g2.getFont();
+            Font smallFont = origFont.deriveFont(origFont.getSize2D() * 0.8f);
+            // Draw publishers
+            for (Map.Entry<String, DeviceReading> entry : deviceReadings.entrySet()) {
+                DeviceReading dr = entry.getValue();
                 int dx = (int) (dr.x / 100.0 * (w - 2 * r)) + r;
                 int dy = (int) (dr.y / 100.0 * (h - 2 * r)) + r;
                 g2.fillOval(dx - r, dy - r, 2 * r, 2 * r);
-                g2.drawString(String.format("(%.1f,%.1f)", dr.x, dr.y), dx + 5, dy - 5);
+                g2.setColor(Color.BLACK);
+                g2.setFont(smallFont);
+                // Show only the suffix (after last '-') as the label
+                String id = entry.getKey();
+                int dashIdx = id.lastIndexOf('-');
+                String label = (dashIdx >= 0 && dashIdx < id.length() - 1) ? id.substring(dashIdx + 1) : id;
+                g2.drawString(label, dx + 10, dy - 16);
+                g2.drawString(String.format("(%.1f,%.1f)", dr.x, dr.y), dx + 10, dy - 2);
+                g2.setFont(origFont);
+                g2.setColor(Color.BLUE);
             }
+            // Draw estimated receiver position
             if (deviceReadings.size() >= 3) {
                 java.util.List<DeviceReading> readings = new java.util.ArrayList<>(deviceReadings.values());
                 if (readings.size() > 3) readings = readings.subList(0, 3);
@@ -200,12 +222,15 @@ public class SwingSubscriber extends JFrame {
                     int ey = (int) (pos[1] / 100.0 * (h - 2 * r)) + r;
                     g2.setColor(Color.RED);
                     g2.fillOval(ex - r, ey - r, 2 * r, 2 * r);
-                    g2.drawString(String.format("Est: (%.1f,%.1f)", pos[0], pos[1]), ex + 5, ey - 5);
+                    g2.setColor(Color.MAGENTA);
+                    g2.setFont(smallFont);
+                    g2.drawString("Receiver", ex + 10, ey - 16);
+                    g2.drawString(String.format("(%.1f,%.1f)", pos[0], pos[1]), ex + 10, ey - 2);
+                    g2.setFont(origFont);
                 }
             }
         }
     }
-    // ...existing code...
 
     // Parse JSON, store device readings, and attempt trilateration
     private void handleRssiMessage(String payload) {
