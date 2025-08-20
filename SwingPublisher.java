@@ -17,6 +17,10 @@ public class SwingPublisher extends JFrame {
     private MqttClient client;
     private String clientId;
 
+    // Device coordinates (now instance fields for movement, within -120 to 120)
+    private double x = -30 + Math.random() * 80;
+    private double y = -30 + Math.random() * 80;
+
     // Constructor
     public SwingPublisher() {
         super("MQTT Publisher (Device)");
@@ -75,16 +79,18 @@ public class SwingPublisher extends JFrame {
     }
     // Periodically send mock RSSI data as JSON
     private void startMockRssiPublisher() {
-        // Assign random but fixed coordinates for this device
-        final double x = 10 + Math.random() * 90; // e.g., 10-100
-        final double y = 10 + Math.random() * 90;
-
         // Use a fixed RSSI value for more stable trilateration
         final double baseRssi = -60; // e.g., -60 dBm
-        Timer timer = new Timer(10000, e -> {
+        Timer timer = new Timer(2000, e -> {
             try {
+                // Simulate small random walk in position
+                x += (Math.random() - 0.5) * 2; // move up to ±2 units
+                y += (Math.random() - 0.5) * 2;
+                // Clamp to -120..120
+                x = Math.max(-50, Math.min(50, x));
+                y = Math.max(-50, Math.min(50, y));
                 // Add a small random noise to RSSI
-                double rssi = baseRssi + (Math.random() - 0.5) * 2; // -61 to -59
+                double rssi = baseRssi + (Math.random() - 0.5) * 1; // -65 to -55
                 String json = String.format(
                     "{\"deviceId\":\"%s\",\"coordinates\":{\"x\":%.2f,\"y\":%.2f},\"rssi\":%.2f}",
                     clientId, x, y, rssi

@@ -21,9 +21,9 @@ CLIENT_SUFFIX=A1 java -cp .:lib/paho-mqtt-client.jar SwingSubscriber
 
 ## 4 Run multiple publishers:
 
-CLIENT_SUFFIX=A1 java -cp .:lib/paho-mqtt-client.jar SwingPublisher &
-CLIENT_SUFFIX=B2 java -cp .:lib/paho-mqtt-client.jar SwingPublisher &
-CLIENT_SUFFIX=C3 java -cp .:lib/paho-mqtt-client.jar SwingPublisher &
+CLIENT_SUFFIX=Publisher1 java -cp .:lib/paho-mqtt-client.jar SwingPublisher &
+CLIENT_SUFFIX=Publisher2 java -cp .:lib/paho-mqtt-client.jar SwingPublisher &
+CLIENT_SUFFIX=Publisher3 java -cp .:lib/paho-mqtt-client.jar SwingPublisher &
 
 ### Prereqs:
 - Broker running on localhost:1883 (e.g., Docker: `docker run --rm -it -p 1883:1883 eclipse-mosquitto:2 mosquitto -c /mosquitto-no-auth.conf`)

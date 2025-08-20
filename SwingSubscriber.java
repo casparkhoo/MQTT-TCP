@@ -191,16 +191,40 @@ public class SwingSubscriber extends JFrame {
             super.paintComponent(g);
             Graphics2D g2 = (Graphics2D) g;
             int w = getWidth(), h = getHeight();
-            g2.setColor(Color.BLUE);
-            int r = 8;
+            g2.setColor(Color.WHITE);
+            g2.fillRect(0, 0, w, h);
+            int r = 8; // Node size
+            int pad = 2 * r; // Minimal padding
             Font origFont = g2.getFont();
             Font smallFont = origFont.deriveFont(origFont.getSize2D() * 0.8f);
-            // Draw publishers
+            // Grid settings for -150 to 150
+            double minCoord = -150, maxCoord = 150;
+            int gridStep = 10;
+            // Draw grid lines
+            g2.setColor(new Color(230, 230, 230));
+            for (int i = (int) minCoord; i <= (int) maxCoord; i += gridStep) {
+                int gx = (int)((i - minCoord) / (maxCoord - minCoord) * (w - 2 * pad)) + pad;
+                g2.drawLine(gx, pad, gx, h - pad);
+                int gy = (int)((maxCoord - i) / (maxCoord - minCoord) * (h - 2 * pad)) + pad;
+                g2.drawLine(pad, gy, w - pad, gy);
+                if (i % 50 == 0) {
+                    g2.setFont(smallFont);
+                    g2.setColor(Color.GRAY);
+                    g2.drawString(Integer.toString(i), gx + 2, h - pad + 12);
+                    g2.drawString(Integer.toString(i), 2, gy - 2);
+                    g2.setColor(new Color(230, 230, 230));
+                }
+            }
+            g2.setFont(origFont);
+            // Draw publishers as squares and collect their positions
+            java.util.List<int[]> pubPoints = new java.util.ArrayList<>();
             for (Map.Entry<String, DeviceReading> entry : deviceReadings.entrySet()) {
                 DeviceReading dr = entry.getValue();
-                int dx = (int) (dr.x / 100.0 * (w - 2 * r)) + r;
-                int dy = (int) (dr.y / 100.0 * (h - 2 * r)) + r;
-                g2.fillOval(dx - r, dy - r, 2 * r, 2 * r);
+                int dx = (int)((dr.x - minCoord) / (maxCoord - minCoord) * (w - 2 * pad)) + pad;
+                int dy = (int)((maxCoord - dr.y) / (maxCoord - minCoord) * (h - 2 * pad)) + pad;
+                pubPoints.add(new int[]{dx, dy});
+                g2.setColor(Color.BLUE);
+                g2.fillRect(dx - r, dy - r, 2 * r, 2 * r);
                 g2.setColor(Color.BLACK);
                 g2.setFont(smallFont);
                 // Show only the suffix (after last '-') as the label
@@ -210,18 +234,27 @@ public class SwingSubscriber extends JFrame {
                 g2.drawString(label, dx + 10, dy - 16);
                 g2.drawString(String.format("(%.1f,%.1f)", dr.x, dr.y), dx + 10, dy - 2);
                 g2.setFont(origFont);
-                g2.setColor(Color.BLUE);
             }
-            // Draw estimated receiver position
+            // Draw estimated receiver position as square and faint dotted lines
             if (deviceReadings.size() >= 3) {
                 java.util.List<DeviceReading> readings = new java.util.ArrayList<>(deviceReadings.values());
                 if (readings.size() > 3) readings = readings.subList(0, 3);
                 double[] pos = trilaterate(readings.get(0), readings.get(1), readings.get(2));
                 if (!Double.isNaN(pos[0]) && !Double.isNaN(pos[1])) {
-                    int ex = (int) (pos[0] / 100.0 * (w - 2 * r)) + r;
-                    int ey = (int) (pos[1] / 100.0 * (h - 2 * r)) + r;
+                    int ex = (int)((pos[0] - minCoord) / (maxCoord - minCoord) * (w - 2 * pad)) + pad;
+                    int ey = (int)((maxCoord - pos[1]) / (maxCoord - minCoord) * (h - 2 * pad)) + pad;
+                    // Draw faint dotted lines from publishers to receiver
+                    java.awt.Stroke oldStroke = g2.getStroke();
+                    g2.setColor(new Color(150, 150, 150, 100));
+                    float[] dash = {4f, 6f};
+                    g2.setStroke(new java.awt.BasicStroke(1f, java.awt.BasicStroke.CAP_BUTT, java.awt.BasicStroke.JOIN_BEVEL, 0, dash, 0));
+                    for (int[] pub : pubPoints) {
+                        g2.drawLine(pub[0], pub[1], ex, ey);
+                    }
+                    g2.setStroke(oldStroke);
+                    // Draw receiver as square
                     g2.setColor(Color.RED);
-                    g2.fillOval(ex - r, ey - r, 2 * r, 2 * r);
+                    g2.fillRect(ex - r, ey - r, 2 * r, 2 * r);
                     g2.setColor(Color.MAGENTA);
                     g2.setFont(smallFont);
                     g2.drawString("Receiver", ex + 10, ey - 16);
@@ -255,11 +288,9 @@ public class SwingSubscriber extends JFrame {
                 log(String.format("[Trilateration] Estimated position: (%.2f, %.2f)", pos[0], pos[1]));
                 // Repaint visualization
                 for (Component c : getContentPane().getComponents()) {
-                    if (c instanceof JPanel) {
-                        for (Component cc : ((JPanel)c).getComponents()) {
-                            if (cc instanceof TrilaterationPanel) {
-                                cc.repaint();
-                            }
+                    for (Component cc : ((JPanel)c).getComponents()) {
+                        if (cc instanceof TrilaterationPanel) {
+                            cc.repaint();
                         }
                     }
                 }
